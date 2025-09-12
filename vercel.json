@@ -4,11 +4,18 @@
     {
       "src": "index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/styles.css",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/styles.css",
+      "headers": {
+        "Content-Type": "text/css"
+      },
       "dest": "/public/styles.css"
     },
     {
@@ -19,10 +26,5 @@
       "src": "/(.*)",
       "dest": "/index.js"
     }
-  ],
-  "functions": {
-    "index.js": {
-      "includeFiles": "public/**"
-    }
-  }
+  ]
 }

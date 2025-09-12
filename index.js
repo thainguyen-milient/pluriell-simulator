@@ -32,12 +32,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static file serving for CSS, JS, and other assets
-app.use(express.static('public'));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Explicit route for CSS file to ensure it works on Vercel
 app.get('/styles.css', (req, res) => {
   res.setHeader('Content-Type', 'text/css');
-  res.sendFile(path.join(__dirname, 'public', 'styles.css'));
+  res.setHeader('Cache-Control', 'public, max-age=31536000');
+  const fs = require('fs');
+  const cssPath = path.join(__dirname, 'public', 'styles.css');
+  
+  if (fs.existsSync(cssPath)) {
+    res.sendFile(cssPath);
+  } else {
+    res.status(404).send('CSS file not found');
+  }
 });
 
 // Auth0 configuration
