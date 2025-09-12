@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const { auth, requiresAuth } = require('express-openid-connect');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -32,6 +33,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static file serving for CSS, JS, and other assets
 app.use(express.static('public'));
+
+// Explicit route for CSS file to ensure it works on Vercel
+app.get('/styles.css', (req, res) => {
+  res.setHeader('Content-Type', 'text/css');
+  res.sendFile(path.join(__dirname, 'public', 'styles.css'));
+});
 
 // Auth0 configuration
 const config = {
