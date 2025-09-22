@@ -5,7 +5,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
+const { verifyToken, extractToken } = require('./utils/authMiddleware');
 
 const scimRoutes = require('./routes/scim');
 const authRoutes = require('./routes/auth');
@@ -30,6 +34,7 @@ app.use(morgan('combined'));
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Static file serving for CSS, JS, and other assets
 app.use('/public', express.static(path.join(__dirname, 'public')));
@@ -48,18 +53,17 @@ app.get('/styles.css', (req, res) => {
   }
 });
 
-// Auth0 configuration
-const config = {
-  authRequired: false,
-  auth0Logout: true,
-  secret: process.env.AUTH0_SECRET,
-  baseURL: process.env.AUTH0_BASE_URL || 'http://localhost:3002',
-  clientID: process.env.AUTH0_CLIENT_ID,
-  issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
-};
-
-// Auth0 middleware
-app.use(auth(config));
+// Session middleware for storing user data
+const session = require('express-session');
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'pluriell-session-secret',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -67,8 +71,26 @@ app.use('/scim/v2', scimRoutes);
 
 // Home route - serve HTML page
 app.get('/', (req, res) => {
-  const isAuthenticated = req.oidc.isAuthenticated();
-  const user = req.oidc.user;
+  // Check for JWT token authentication
+  const token = extractToken(req);
+  let isTokenAuthenticated = false;
+  let tokenUser = null;
+  
+  if (token) {
+    try {
+      tokenUser = jwt.verify(token, process.env.JWT_SECRET);
+      isTokenAuthenticated = true;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+    }
+  }
+  
+  // Check if user is in session
+  const isSessionAuthenticated = req.session && req.session.user;
+  const sessionUser = req.session.user;
+  
+  const isAuthenticated = isTokenAuthenticated || isSessionAuthenticated;
+  const user = tokenUser || sessionUser;
   
   res.send(`
     <!DOCTYPE html>
@@ -76,13 +98,13 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Pluriell with Auth0</title>
+        <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
     </head>
     <body>
         <div class="container">
             <header class="header">
-                <h1>🔐Pluriell simulator with Auth0 Authentication</h1>
+                <h1>🔐 Pluriell simulator with SSO Gateway Integration</h1>
                 <div class="auth-status ${isAuthenticated ? 'authenticated' : 'not-authenticated'}">
                     ${isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'}
                 </div>
@@ -99,13 +121,27 @@ app.get('/', (req, res) => {
                     </div>
                     
                     <div class="actions">
-                        <a href="/auth/logout" class="btn btn-secondary">Logout</a>
+                        <div class="product-switch">
+                            <h3>Switch Product</h3>
+                            <a href="http://localhost:3001" class="btn btn-primary">Go to Receipt Flow</a>
+                        </div>
+                        <div class="logout-options">
+                            <a href="/auth/logout" class="btn btn-secondary">Logout (Direct)</a>
+                            <a href="/auth/logout?sso=true" class="btn btn-danger">Logout via SSO Gateway</a>
+                        </div>
                     </div>
                 ` : `
                     <div class="welcome">
                         <h2>Welcome to the Pluriell simulator</h2>
                         <p>Please log in to access the SCIM endpoints and manage users and groups.</p>
-                        <a href="/auth/login" class="btn btn-primary">Login with Auth0</a>
+                        <div class="login-options">
+                            <a href="/auth/login" class="btn btn-primary">Login with Auth0 (Direct)</a>
+                            <a href="/auth/login?sso=true" class="btn btn-secondary">Login via SSO Gateway</a>
+                        </div>
+                        <div class="product-switch" style="margin-top: 20px;">
+                            <h3>Switch Product</h3>
+                            <a href="https://receipt-flow.io.vn" class="btn btn-outline-primary">Go to Receipt Flow</a>
+                        </div>
                     </div>
                 `}
                 
@@ -115,10 +151,14 @@ app.get('/', (req, res) => {
                         <div class="endpoint-group">
                             <h4>Authentication</h4>
                             <ul>
-                                <li><code>GET /auth/login</code> - Login</li>
-                                <li><code>GET /auth/logout</code> - Logout</li>
+                                <li><code>GET /auth/login</code> - Direct Login</li>
+                                <li><code>GET /auth/login?sso=true</code> - SSO Gateway Login</li>
+                                <li><code>GET /auth/logout</code> - Direct Logout</li>
+                                <li><code>GET /auth/logout?sso=true</code> - SSO Gateway Logout</li>
+                                <li><code>GET /auth/sso-callback</code> - SSO Gateway Callback</li>
                                 <li><code>GET /auth/profile</code> - User Profile</li>
                                 <li><code>GET /auth/status</code> - Auth Status</li>
+                                <li><code>POST /auth/token</code> - Generate JWT Token</li>
                             </ul>
                         </div>
                         

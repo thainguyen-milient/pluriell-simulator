@@ -1,11 +1,11 @@
 const express = require('express');
-const { requiresAuth } = require('express-openid-connect');
 const { UserStorage, GroupStorage } = require('../utils/userStorage');
 const { userSchema, groupSchema, patchSchema, querySchema } = require('../utils/scimValidation');
+const { requireAuth } = require('../utils/authMiddleware');
 const router = express.Router();
 
 // Middleware to require authentication for all SCIM endpoints
-router.use(requiresAuth());
+router.use(requireAuth);
 
 // SCIM Error response helper
 function scimError(res, status, scimType, detail) {

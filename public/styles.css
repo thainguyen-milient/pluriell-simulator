@@ -123,6 +123,25 @@ body {
     flex-wrap: wrap;
 }
 
+.login-options, .logout-options {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(244, 67, 54, 0.6);
+}
+
 .btn {
     display: inline-block;
     padding: 12px 24px;
@@ -367,6 +386,17 @@ body {
     padding: 25px;
     max-height: 60vh;
     overflow-y: auto;
+}
+
+.product-switch {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.product-switch h3 {
+    color: #495057;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
 }
 
 .profile-section {

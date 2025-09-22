@@ -10,15 +10,18 @@
     "vercel-build": "echo 'No build step required'"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-openid-connect": "^2.17.1",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
     "express-rate-limit": "^6.10.0",
-    "uuid": "^9.0.0",
+    "express-session": "^1.18.2",
+    "helmet": "^7.0.0",
     "joi": "^17.9.2",
-    "morgan": "^1.10.0"
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
@@ -26,7 +29,13 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["express", "auth0", "scim", "authentication", "vercel"],
+  "keywords": [
+    "express",
+    "auth0",
+    "scim",
+    "authentication",
+    "vercel"
+  ],
   "author": "",
   "license": "MIT"
 }
