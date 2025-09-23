@@ -17,6 +17,10 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Trust proxy - required for Vercel deployment and express-rate-limit to work correctly
+// This is needed because Vercel uses proxies that add X-Forwarded-For headers
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors());
@@ -24,7 +28,12 @@ app.use(cors());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // The following ensures proper IP detection behind proxies like Vercel
+  // This works in conjunction with app.set('trust proxy', 1)
+  trustProxy: true
 });
 app.use(limiter);
 
