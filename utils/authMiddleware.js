@@ -18,7 +18,7 @@ const extractToken = (req) => {
   }
   // Check cookies - try multiple possible cookie names
   else if (req.cookies) {
-    console.log('Checking cookies for token');
+    console.log('Checking cookies for token', req.cookies);
     // Try pluriell_token first (our app's cookie)
     if (req.cookies.pluriell_token) {
       console.log('Token found in pluriell_token cookie');
