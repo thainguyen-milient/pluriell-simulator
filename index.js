@@ -107,7 +107,7 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="sso-gateway-url" content="${process.env.SSO_GATEWAY_URL}">
+        <meta name="sso-gateway-url" content="${process.env.SSO_GATEWAY_URL || 'https://sso.receipt-flow.io.vn'}">
         <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
         <script src="/public/auth-helper.js"></script>

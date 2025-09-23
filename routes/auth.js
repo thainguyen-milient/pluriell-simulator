@@ -9,14 +9,46 @@ router.use(cookieParser());
 
 // Login route - redirect to SSO Gateway
 router.get('/login', (req, res) => {
+  // Determine return URL based on environment
+  const returnTo = req.query.returnTo || process.env.BASE_URL || 
+    (process.env.NODE_ENV === 'production' ? 'https://pluriell.receipt-flow.io.vn' : 'http://localhost:3002');
+  
+  // Determine SSO Gateway URL based on environment
+  const ssoGatewayUrl = process.env.SSO_GATEWAY_URL || 
+    (process.env.NODE_ENV === 'production' ? 'https://sso.receipt-flow.io.vn' : 'http://localhost:3000');
+  
+  console.log(`Login initiated, redirecting to SSO Gateway: ${ssoGatewayUrl} with returnTo: ${returnTo}`);
+  
   // Always redirect to SSO Gateway for login
-  const returnTo = req.query.returnTo || process.env.BASE_URL || 'http://localhost:3002';
-  return res.redirect(`${process.env.SSO_GATEWAY_URL}/auth/login?productId=receipt&returnTo=${encodeURIComponent(returnTo)}`);
+  return res.redirect(`${ssoGatewayUrl}/auth/login?productId=pluriell&returnTo=${encodeURIComponent(returnTo)}`);
 });
 
 // Logout route
 router.get('/logout', (req, res) => {
+  // Cookie options for clearing in production
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+    path: '/'
+  };
+
+  const clientCookieOptions = {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+    path: '/'
+  };
+  
   // Clear all possible token cookies
+  res.clearCookie('pluriell_token', cookieOptions);
+  res.clearCookie('pluriell_token_client', clientCookieOptions);
+  res.clearCookie('access_token', cookieOptions);
+  res.clearCookie('sso_token', cookieOptions);
+  
+  // Also try clearing without domain for local cookies
   res.clearCookie('pluriell_token');
   res.clearCookie('pluriell_token_client');
   res.clearCookie('access_token');
@@ -28,8 +60,14 @@ router.get('/logout', (req, res) => {
   }
   
   // Get the SSO Gateway logout URL with global logout parameter
-  const returnTo = req.query.returnTo || process.env.BASE_URL || 'http://localhost:3002';
-  const logoutUrl = `${process.env.SSO_GATEWAY_URL}/auth/logout?global=true&returnTo=${encodeURIComponent(returnTo)}`;
+  const returnTo = req.query.returnTo || process.env.BASE_URL || 
+    (process.env.NODE_ENV === 'production' ? 'https://pluriell.receipt-flow.io.vn' : 'http://localhost:3002');
+  
+  // Determine SSO Gateway URL
+  const ssoGatewayUrl = process.env.SSO_GATEWAY_URL || 
+    (process.env.NODE_ENV === 'production' ? 'https://sso.receipt-flow.io.vn' : 'http://localhost:3000');
+  
+  const logoutUrl = `${ssoGatewayUrl}/auth/logout?global=true&returnTo=${encodeURIComponent(returnTo)}`;
   
   console.log(`Global logout initiated, redirecting to SSO Gateway: ${logoutUrl}`);
   
@@ -99,6 +137,8 @@ router.get('/sso-callback', (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' in production for cross-domain
+      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined, // Use domain in production
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -107,6 +147,8 @@ router.get('/sso-callback', (req, res) => {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined, // Use domain in production
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -240,6 +282,8 @@ router.post('/token', (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+          path: '/',
           maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
         
@@ -248,6 +292,8 @@ router.post('/token', (req, res) => {
           httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+          path: '/',
           maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
         
@@ -293,6 +339,8 @@ router.post('/token', (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -301,6 +349,8 @@ router.post('/token', (req, res) => {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     

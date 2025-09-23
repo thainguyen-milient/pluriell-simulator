@@ -233,7 +233,13 @@ function getSsoGatewayUrl() {
     return metaTag.content;
   }
   
-  // Default fallback
+  // Check if we're in production based on hostname
+  const hostname = window.location.hostname;
+  if (hostname.includes('vercel.app') || hostname.includes('receipt-flow.io.vn')) {
+    return 'https://sso.receipt-flow.io.vn';
+  }
+  
+  // Default fallback for local development
   return 'http://localhost:3000';
 }
 
