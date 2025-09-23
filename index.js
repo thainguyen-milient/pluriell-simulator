@@ -141,7 +141,7 @@ app.get('/', (req, res) => {
                     <div class="actions">
                         <div class="product-switch">
                             <h3>Switch Product</h3>
-                            <a href="http://localhost:3001" class="btn btn-primary">Go to Receipt Flow</a>
+                            <a href="https://receipt-flow.io.vn" class="btn btn-primary">Go to Receipt Flow</a>
                         </div>
                         <div class="logout-options">
                             <a href="/auth/logout?global=true" class="btn btn-danger">Global Logout (All Systems)</a>
