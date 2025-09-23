@@ -25,34 +25,60 @@ router.get('/login', (req, res) => {
 
 // Logout route
 router.get('/logout', (req, res) => {
-  // Cookie options for clearing in production
-  const cookieOptions = {
+  // Cookie options for this subdomain
+  const subdomainOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+    secure: true,
+    sameSite: 'none',
+    domain: 'pluriell.receipt-flow.io.vn',
     path: '/'
   };
 
-  const clientCookieOptions = {
+  const subdomainClientOptions = {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined,
+    secure: true,
+    sameSite: 'none',
+    domain: 'pluriell.receipt-flow.io.vn',
     path: '/'
   };
   
-  // Clear all possible token cookies
-  res.clearCookie('pluriell_token', cookieOptions);
-  res.clearCookie('pluriell_token_client', clientCookieOptions);
-  res.clearCookie('access_token', cookieOptions);
-  res.clearCookie('sso_token', cookieOptions);
+  // Cookie options for main domain
+  const mainDomainOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    domain: 'receipt-flow.io.vn',
+    path: '/'
+  };
+
+  const mainDomainClientOptions = {
+    httpOnly: false,
+    secure: true,
+    sameSite: 'none',
+    domain: 'receipt-flow.io.vn',
+    path: '/'
+  };
+  
+  // Clear cookies on this subdomain
+  res.clearCookie('pluriell_token', subdomainOptions);
+  res.clearCookie('pluriell_token_client', subdomainClientOptions);
+  res.clearCookie('access_token', subdomainOptions);
+  res.clearCookie('sso_token', subdomainOptions);
+  res.clearCookie('sso_token_client', subdomainClientOptions);
+  
+  // Clear cookies on main domain
+  res.clearCookie('pluriell_token', mainDomainOptions);
+  res.clearCookie('pluriell_token_client', mainDomainClientOptions);
+  res.clearCookie('access_token', mainDomainOptions);
+  res.clearCookie('sso_token', mainDomainOptions);
+  res.clearCookie('sso_token_client', mainDomainClientOptions);
   
   // Also try clearing without domain for local cookies
   res.clearCookie('pluriell_token');
   res.clearCookie('pluriell_token_client');
   res.clearCookie('access_token');
   res.clearCookie('sso_token');
+  res.clearCookie('sso_token_client');
   
   // Clear session
   if (req.session) {
@@ -132,12 +158,12 @@ router.get('/sso-callback', (req, res) => {
     
     const pluriellToken = generateToken(pluriellTokenPayload);
     
-    // Set token as HTTP-only cookie with cross-domain support
+    // Set token as HTTP-only cookie specifically for this subdomain
     res.cookie('pluriell_token', pluriellToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' in production for cross-domain
-      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined, // Use domain in production
+      secure: true, // Always use secure for production domains
+      sameSite: 'none', // Required for cross-domain cookies
+      domain: 'pluriell.receipt-flow.io.vn', // Specific to this subdomain
       path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
@@ -145,11 +171,30 @@ router.get('/sso-callback', (req, res) => {
     // Also set a non-httpOnly cookie for client-side access
     res.cookie('pluriell_token_client', pluriellToken, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      domain: process.env.NODE_ENV === 'production' ? '.receipt-flow.io.vn' : undefined, // Use domain in production
+      secure: true, // Always use secure for production domains
+      sameSite: 'none', // Required for cross-domain cookies
+      domain: 'pluriell.receipt-flow.io.vn', // Specific to this subdomain
       path: '/',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+    
+    // Also set cookies on the main domain for sharing
+    res.cookie('access_token', pluriellToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      domain: 'receipt-flow.io.vn', // Main domain without leading dot
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+    
+    res.cookie('sso_token_client', pluriellToken, {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'none',
+      domain: 'receipt-flow.io.vn', // Main domain without leading dot
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000
     });
     
     // Store user info in session
