@@ -141,7 +141,7 @@ app.get('/', (req, res) => {
                         </div>
                         <div class="product-switch" style="margin-top: 20px;">
                             <h3>Switch Product</h3>
-                            <a href="https://receipt-flow.io.vn" class="btn btn-outline-primary">Go to Receipt Flow</a>
+                            <a href="http://localhost:3001" class="btn btn-outline-primary">Go to Receipt Flow</a>
                         </div>
                     </div>
                 `}
