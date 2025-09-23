@@ -130,7 +130,7 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
-        <script src="/public/auth-helper.js"></script>
+        <script src="/public/bearer-auth-helper.js"></script>
     </head>
     <body>
         <div class="container">
@@ -234,19 +234,28 @@ app.get('/', (req, res) => {
         </div>
         
     <script>
-        // Handle token in URL if present (for cross-domain authentication)
+        // Handle Bearer token authentication
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if AuthHelper is available
-            if (window.AuthHelper) {
+            // Check if BearerAuthHelper is available
+            if (window.BearerAuthHelper) {
                 // Try to handle SSO callback with token in URL
-                const tokenHandled = window.AuthHelper.handleSSOCallback();
+                const tokenHandled = window.BearerAuthHelper.handleTokenFromUrl();
                 
                 if (tokenHandled) {
-                    console.log('Token successfully stored in localStorage');
+                    console.log('Bearer token successfully stored in localStorage');
                     // Refresh the page to update authentication status
                     setTimeout(() => {
                         window.location.reload();
                     }, 100);
+                } else {
+                    // Check if user is already authenticated via Bearer token
+                    if (window.BearerAuthHelper.isAuthenticated()) {
+                        console.log('User already authenticated via Bearer token');
+                        // Optionally refresh to show authenticated state
+                        if (!${isAuthenticated}) {
+                            window.location.reload();
+                        }
+                    }
                 }
             }
         });
