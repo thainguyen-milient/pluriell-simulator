@@ -19,7 +19,29 @@ const PORT = process.env.PORT || 3002;
 
 // Security middleware
 app.use(helmet());
-app.use(cors());
+
+// CORS configuration for cross-domain authentication
+const corsOptions = {
+  origin: function (origin, callback) {
+    const defaultOrigins = process.env.NODE_ENV === 'production' 
+      ? ['https://sso.receipt-flow.io.vn', 'https://pluriell.receipt-flow.io.vn', 'https://receipt.receipt-flow.io.vn']
+      : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+    
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || defaultOrigins;
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -55,15 +77,23 @@ app.get('/styles.css', (req, res) => {
 
 // Session middleware for storing user data
 const session = require('express-session');
-app.use(session({
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'pluriell-session-secret',
   resave: false,
   saveUninitialized: true,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
-}));
+};
+
+// In production, set domain for cross-subdomain session sharing
+if (process.env.NODE_ENV === 'production') {
+  sessionConfig.cookie.domain = '.receipt-flow.io.vn';
+}
+
+app.use(session(sessionConfig));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -124,7 +154,7 @@ app.get('/', (req, res) => {
                     <div class="actions">
                         <div class="product-switch">
                             <h3>Switch Product</h3>
-                            <a href="http://localhost:3001" class="btn btn-primary">Go to Receipt Flow</a>
+                            <a href="${process.env.NODE_ENV === 'production' ? 'https://receipt.receipt-flow.io.vn' : 'http://localhost:3001'}" class="btn btn-primary">Go to Receipt Flow</a>
                         </div>
                         <div class="logout-options">
                             <a href="/auth/logout" class="btn btn-secondary">Logout (Direct)</a>
@@ -141,7 +171,7 @@ app.get('/', (req, res) => {
                         </div>
                         <div class="product-switch" style="margin-top: 20px;">
                             <h3>Switch Product</h3>
-                            <a href="https://receipt-flow.io.vn" class="btn btn-outline-primary">Go to Receipt Flow</a>
+                            <a href="${process.env.NODE_ENV === 'production' ? 'https://receipt.receipt-flow.io.vn' : 'http://localhost:3001'}" class="btn btn-outline-primary">Go to Receipt Flow</a>
                         </div>
                     </div>
                 `}
