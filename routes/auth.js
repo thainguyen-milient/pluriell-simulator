@@ -47,7 +47,7 @@ router.get('/logout', (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: 'none',
-    domain: 'receipt-flow.io.vn',
+    domain: '.receipt-flow.io.vn', // Leading dot for subdomain sharing
     path: '/'
   };
 
@@ -55,7 +55,7 @@ router.get('/logout', (req, res) => {
     httpOnly: false,
     secure: true,
     sameSite: 'none',
-    domain: 'receipt-flow.io.vn',
+    domain: '.receipt-flow.io.vn', // Leading dot for subdomain sharing
     path: '/'
   };
   
@@ -183,7 +183,7 @@ router.get('/sso-callback', (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: 'none',
-      domain: 'receipt-flow.io.vn', // Main domain without leading dot
+      domain: '.receipt-flow.io.vn', // Main domain with leading dot for subdomain sharing
       path: '/',
       maxAge: 24 * 60 * 60 * 1000
     });
@@ -192,7 +192,7 @@ router.get('/sso-callback', (req, res) => {
       httpOnly: false,
       secure: true,
       sameSite: 'none',
-      domain: 'receipt-flow.io.vn', // Main domain without leading dot
+      domain: '.receipt-flow.io.vn', // Main domain with leading dot for subdomain sharing
       path: '/',
       maxAge: 24 * 60 * 60 * 1000
     });
