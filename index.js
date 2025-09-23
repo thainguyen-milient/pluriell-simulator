@@ -100,6 +100,7 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
+        <script src="/public/auth-helper.js"></script>
     </head>
     <body>
         <div class="container">
@@ -202,6 +203,24 @@ app.get('/', (req, res) => {
             </footer>
         </div>
         
+    <script>
+        // Handle token in URL if present (for cross-domain authentication)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if AuthHelper is available
+            if (window.AuthHelper) {
+                // Try to handle SSO callback with token in URL
+                const tokenHandled = window.AuthHelper.handleSSOCallback();
+                
+                if (tokenHandled) {
+                    console.log('Token successfully stored in localStorage');
+                    // Refresh the page to update authentication status
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                }
+            }
+        });
+    </script>
     </body>
     </html>
   `);
