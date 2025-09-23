@@ -24,7 +24,14 @@ const extractToken = (req) => {
     else if (req.cookies.access_token) {
       token = req.cookies.access_token;
     }
+    // Try sso_token (another possible name from SSO Gateway)
+    else if (req.cookies.sso_token) {
+      token = req.cookies.sso_token;
+    }
   }
+  
+  // Check localStorage via client-side script (this won't work server-side)
+  // This is handled by auth-helper.js on the client side
 
   return token;
 };
@@ -35,6 +42,7 @@ const extractToken = (req) => {
 const verifyToken = (req, res, next) => {
   try {
     const token = extractToken(req);
+    console.log('Extracted Token:', token);
     
     if (!token) {
       return res.status(401).json({

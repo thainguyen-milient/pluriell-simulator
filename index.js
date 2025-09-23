@@ -72,7 +72,7 @@ app.use('/scim/v2', scimRoutes);
 // Home route - serve HTML page
 app.get('/', (req, res) => {
   // Check for JWT token authentication
-  const token = extractToken(req);
+  const token = req.cookies.access_token;
   let isTokenAuthenticated = false;
   let tokenUser = null;
   
@@ -98,9 +98,26 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="sso-gateway-url" content="${process.env.SSO_GATEWAY_URL}">
         <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
         <script src="/public/auth-helper.js"></script>
+        <script src="/public/test-auth.js"></script>
+        <!-- Ensure auth-helper.js is loaded properly -->
+        <script>
+            // Check if AuthHelper is available
+            document.addEventListener('DOMContentLoaded', function() {
+                if (!window.AuthHelper) {
+                    console.error('AuthHelper not loaded properly!');
+                    // Try to load it again
+                    var script = document.createElement('script');
+                    script.src = '/public/auth-helper.js';
+                    document.head.appendChild(script);
+                } else {
+                    console.log('AuthHelper loaded successfully');
+                }
+            });
+        </script>
     </head>
     <body>
         <div class="container">
@@ -127,8 +144,12 @@ app.get('/', (req, res) => {
                             <a href="http://localhost:3001" class="btn btn-primary">Go to Receipt Flow</a>
                         </div>
                         <div class="logout-options">
-                            <a href="/auth/logout" class="btn btn-secondary">Logout (Direct)</a>
-                            <a href="/auth/logout?sso=true" class="btn btn-danger">Logout via SSO Gateway</a>
+                            <a href="/auth/logout?global=true" class="btn btn-danger">Global Logout (All Systems)</a>
+                            <button onclick="window.AuthHelper.globalLogout()" class="btn btn-secondary">Client-Side Global Logout</button>
+                        </div>
+                        <div class="debug-options" style="margin-top: 20px;">
+                            <a href="/token-test" class="btn btn-info">Token Test Page</a>
+                            <a href="/auth/debug" class="btn btn-info">Auth Debug Info</a>
                         </div>
                     </div>
                 ` : `
@@ -141,7 +162,12 @@ app.get('/', (req, res) => {
                         </div>
                         <div class="product-switch" style="margin-top: 20px;">
                             <h3>Switch Product</h3>
-                            <a href="https://receipt-flow.io.vn" class="btn btn-outline-primary">Go to Receipt Flow</a>
+                            <a href="http://localhost:3001" class="btn btn-outline-primary">Go to Receipt Flow</a>
+                        </div>
+                        <div class="debug-options" style="margin-top: 20px;">
+                            <h3>Debug Tools</h3>
+                            <a href="/token-test" class="btn btn-outline-info">Token Test Page</a>
+                            <a href="/auth/debug" class="btn btn-outline-info">Auth Debug Info</a>
                         </div>
                     </div>
                 `}
@@ -160,6 +186,7 @@ app.get('/', (req, res) => {
                                 <li><code>GET /auth/profile</code> - User Profile</li>
                                 <li><code>GET /auth/status</code> - Auth Status</li>
                                 <li><code>POST /auth/token</code> - Generate JWT Token</li>
+                                <li><code>GET /auth/debug</code> - <a href="/auth/debug" target="_blank">Debug Auth State</a></li>
                             </ul>
                         </div>
                         
@@ -206,24 +233,85 @@ app.get('/', (req, res) => {
     <script>
         // Handle token in URL if present (for cross-domain authentication)
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking for tokens');
             // Check if AuthHelper is available
             if (window.AuthHelper) {
+                console.log('AuthHelper found, attempting to handle SSO callback');
                 // Try to handle SSO callback with token in URL
                 const tokenHandled = window.AuthHelper.handleSSOCallback();
                 
                 if (tokenHandled) {
-                    console.log('Token successfully stored in localStorage');
+                    console.log('Token successfully stored in localStorage/sessionStorage');
+                    // Get user info from token
+                    const userInfo = window.AuthHelper.getUserInfo();
+                    if (userInfo) {
+                        console.log('User info from token:', { 
+                            sub: userInfo.sub,
+                            email: userInfo.email,
+                            name: userInfo.name,
+                            productId: userInfo.productId
+                        });
+                    }
                     // Refresh the page to update authentication status
                     setTimeout(() => {
                         window.location.reload();
                     }, 100);
+                } else {
+                    console.log('No token found in URL, checking other sources');
+                    // Check if we're authenticated
+                    if (window.AuthHelper.isAuthenticated()) {
+                        console.log('User is already authenticated');
+                        // Validate the token
+                        const token = window.AuthHelper.getToken();
+                        if (window.AuthHelper.isTokenValid(token)) {
+                            console.log('Token is valid');
+                            // Check if token needs refreshing
+                            window.AuthHelper.refreshTokenIfNeeded()
+                                .then(() => console.log('Token refreshed or still valid'))
+                                .catch(err => console.error('Error refreshing token:', err));
+                        } else {
+                            console.log('Token is invalid, clearing and redirecting to login');
+                            window.AuthHelper.clearToken();
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 100);
+                        }
+                    } else {
+                        console.log('User is not authenticated');
+                        // Check for token in cookies that might be accessible to JS
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.startsWith('pluriell_token_client=')) {
+                                const token = cookie.substring('pluriell_token_client='.length, cookie.length);
+                                console.log('Found token in client cookie, validating');
+                                if (window.AuthHelper.isTokenValid(token)) {
+                                    console.log('Token from cookie is valid, storing in localStorage');
+                                    window.AuthHelper.storeToken(token);
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 100);
+                                } else {
+                                    console.log('Token from cookie is invalid');
+                                }
+                                break;
+                            }
+                        }
+                    }
                 }
+            } else {
+                console.error('AuthHelper not available!');
             }
         });
     </script>
     </body>
     </html>
   `);
+});
+
+// Token test page
+app.get('/token-test', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'token-test.html'));
 });
 
 // Health check endpoint

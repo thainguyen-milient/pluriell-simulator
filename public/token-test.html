@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Test Page</title>
+    <script src="/public/auth-helper.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .card {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .token-info {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Token Test Page</h1>
+    
+    <div class="card">
+        <h2>Current Authentication Status</h2>
+        <div id="auth-status">Checking...</div>
+    </div>
+    
+    <div class="card">
+        <h2>Token from Storage</h2>
+        <div id="token-status">Checking...</div>
+        <div class="token-info" id="token-info"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Test Token Verification</h2>
+        <textarea id="token-input" placeholder="Paste a JWT token here to verify it"></textarea>
+        <button onclick="verifyToken()">Verify Token</button>
+        <div id="verify-result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Actions</h2>
+        <button onclick="clearTokenAndReload()">Clear Token & Reload</button>
+        <button onclick="redirectToLogin()">Login</button>
+        <button onclick="redirectToLogout()">Logout</button>
+        <button onclick="globalLogout()" style="background-color: #d9534f;">Global Logout (All Systems)</button>
+    </div>
+
+    <script>
+        // Check authentication status
+        function checkAuthStatus() {
+            const isAuthenticated = window.AuthHelper.isAuthenticated();
+            document.getElementById('auth-status').innerHTML = isAuthenticated 
+                ? '<span class="success">✅ Authenticated</span>' 
+                : '<span class="error">❌ Not Authenticated</span>';
+            
+            // Check token
+            const token = window.AuthHelper.getToken();
+            if (token) {
+                document.getElementById('token-status').innerHTML = '<span class="success">✅ Token found</span>';
+                
+                try {
+                    // Try to decode and display token info
+                    const isValid = window.AuthHelper.isTokenValid(token);
+                    const isFromSso = window.AuthHelper.isFromSsoGateway(token);
+                    const userInfo = window.AuthHelper.getUserInfo();
+                    
+                    let html = '<h3>Token Information</h3>';
+                    html += `<p><strong>Valid:</strong> ${isValid ? '<span class="success">Yes</span>' : '<span class="error">No</span>'}</p>`;
+                    html += `<p><strong>From SSO Gateway:</strong> ${isFromSso ? '<span class="success">Yes</span>' : '<span class="error">No</span>'}</p>`;
+                    
+                    if (userInfo) {
+                        html += '<h4>User Info</h4>';
+                        html += `<p><strong>Subject:</strong> ${userInfo.sub || 'N/A'}</p>`;
+                        html += `<p><strong>Email:</strong> ${userInfo.email || 'N/A'}</p>`;
+                        html += `<p><strong>Name:</strong> ${userInfo.name || 'N/A'}</p>`;
+                        html += `<p><strong>Product ID:</strong> ${userInfo.productId || 'N/A'}</p>`;
+                        html += `<p><strong>Issuer:</strong> ${userInfo.iss || 'N/A'}</p>`;
+                        
+                        if (userInfo.iat) {
+                            const iatDate = new Date(userInfo.iat * 1000);
+                            html += `<p><strong>Issued At:</strong> ${iatDate.toLocaleString()}</p>`;
+                        }
+                        
+                        if (userInfo.exp) {
+                            const expDate = new Date(userInfo.exp * 1000);
+                            const now = new Date();
+                            const isExpired = expDate < now;
+                            html += `<p><strong>Expires At:</strong> ${expDate.toLocaleString()} ${isExpired ? '<span class="error">(EXPIRED)</span>' : ''}</p>`;
+                        }
+                    }
+                    
+                    // Show token preview
+                    html += '<h4>Token Preview</h4>';
+                    html += `<pre>${token.substring(0, 20)}...${token.substring(token.length - 10)}</pre>`;
+                    
+                    document.getElementById('token-info').innerHTML = html;
+                } catch (error) {
+                    document.getElementById('token-info').innerHTML = `<p class="error">Error processing token: ${error.message}</p>`;
+                }
+            } else {
+                document.getElementById('token-status').innerHTML = '<span class="error">❌ No token found</span>';
+                document.getElementById('token-info').innerHTML = '';
+            }
+        }
+        
+        // Verify a pasted token
+        function verifyToken() {
+            const tokenInput = document.getElementById('token-input').value.trim();
+            const resultElement = document.getElementById('verify-result');
+            
+            if (!tokenInput) {
+                resultElement.innerHTML = '<p class="error">Please enter a token</p>';
+                return;
+            }
+            
+            try {
+                // Try to decode token parts
+                const parts = tokenInput.split('.');
+                if (parts.length !== 3) {
+                    resultElement.innerHTML = '<p class="error">Invalid token format (should have 3 parts)</p>';
+                    return;
+                }
+                
+                try {
+                    // Try to decode header
+                    const header = JSON.parse(atob(parts[0]));
+                    
+                    // Try to decode payload
+                    const payload = JSON.parse(atob(parts[1]));
+                    
+                    // Check if valid
+                    const isValid = window.AuthHelper.isTokenValid(tokenInput);
+                    const isFromSso = window.AuthHelper.isFromSsoGateway(tokenInput);
+                    
+                    let html = '<h3>Token Analysis</h3>';
+                    html += `<p><strong>Valid Format:</strong> <span class="success">Yes</span></p>`;
+                    html += `<p><strong>Valid Signature:</strong> ${isValid ? '<span class="success">Yes</span>' : '<span class="error">No</span>'}</p>`;
+                    html += `<p><strong>From SSO Gateway:</strong> ${isFromSso ? '<span class="success">Yes</span>' : '<span class="error">No</span>'}</p>`;
+                    
+                    // Check expiration
+                    if (payload.exp) {
+                        const expDate = new Date(payload.exp * 1000);
+                        const now = new Date();
+                        const isExpired = expDate < now;
+                        html += `<p><strong>Expired:</strong> ${isExpired ? '<span class="error">Yes</span>' : '<span class="success">No</span>'}</p>`;
+                        html += `<p><strong>Expires At:</strong> ${expDate.toLocaleString()}</p>`;
+                    }
+                    
+                    html += '<h4>Header</h4>';
+                    html += `<pre>${JSON.stringify(header, null, 2)}</pre>`;
+                    
+                    html += '<h4>Payload</h4>';
+                    html += `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                    
+                    resultElement.innerHTML = html;
+                } catch (decodeError) {
+                    resultElement.innerHTML = `<p class="error">Error decoding token parts: ${decodeError.message}</p>`;
+                }
+            } catch (error) {
+                resultElement.innerHTML = `<p class="error">Error processing token: ${error.message}</p>`;
+            }
+        }
+        
+        // Clear token and reload
+        function clearTokenAndReload() {
+            window.AuthHelper.clearToken();
+            window.location.reload();
+        }
+        
+        // Redirect to login
+        function redirectToLogin() {
+            window.location.href = '/auth/login';
+        }
+        
+        // Redirect to logout
+        function redirectToLogout() {
+            window.location.href = '/auth/logout';
+        }
+        
+        // Global logout from all systems
+        function globalLogout() {
+            if (window.AuthHelper && window.AuthHelper.globalLogout) {
+                window.AuthHelper.globalLogout();
+            } else {
+                // Fallback if AuthHelper is not available
+                window.location.href = '/auth/logout?global=true';
+            }
+        }
+        
+        // Check for token in URL on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if AuthHelper is available
+            if (window.AuthHelper) {
+                // Try to handle SSO callback
+                const tokenHandled = window.AuthHelper.handleSSOCallback();
+                if (tokenHandled) {
+                    console.log('Token successfully handled from URL');
+                }
+                
+                // Check auth status
+                checkAuthStatus();
+            } else {
+                document.getElementById('auth-status').innerHTML = '<span class="error">AuthHelper not available</span>';
+            }
+        });
+    </script>
+</body>
+</html>
