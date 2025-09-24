@@ -130,7 +130,7 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Pluriell with SSO Gateway</title>
         <link rel="stylesheet" href="/styles.css">
-        <script src="/public/bearer-auth-helper.js"></script>
+        <script src="/public/session-auth-helper.js"></script>
     </head>
     <body>
         <div class="container">
@@ -234,27 +234,38 @@ app.get('/', (req, res) => {
         </div>
         
     <script>
-        // Handle Bearer token authentication
+        // Handle Enhanced Session authentication
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if BearerAuthHelper is available
-            if (window.BearerAuthHelper) {
+            // Check if SessionAuthHelper is available
+            if (window.SessionAuthHelper) {
                 // Try to handle SSO callback with token in URL
-                const tokenHandled = window.BearerAuthHelper.handleTokenFromUrl();
+                const tokenHandled = window.SessionAuthHelper.handleTokenFromUrl();
                 
                 if (tokenHandled) {
-                    console.log('Bearer token successfully stored in localStorage');
+                    console.log('Session data synced from SSO Gateway');
                     // Refresh the page to update authentication status
                     setTimeout(() => {
                         window.location.reload();
-                    }, 100);
+                    }, 1000); // Give more time for session sync
                 } else {
-                    // Check if user is already authenticated via Bearer token
-                    if (window.BearerAuthHelper.isAuthenticated()) {
-                        console.log('User already authenticated via Bearer token');
+                    // Check if user is already authenticated via session
+                    if (window.SessionAuthHelper.isAuthenticated()) {
+                        console.log('User already authenticated via session');
                         // Optionally refresh to show authenticated state
                         if (!${isAuthenticated}) {
-                            window.location.reload();
+                            // Try to sync session data first
+                            window.SessionAuthHelper.syncSessionFromSSO().then(() => {
+                                window.location.reload();
+                            });
                         }
+                    } else if (!${isAuthenticated}) {
+                        // Try to sync session from SSO Gateway
+                        window.SessionAuthHelper.syncSessionFromSSO().then((sessionData) => {
+                            if (sessionData && sessionData.authenticated) {
+                                console.log('Session restored from SSO Gateway');
+                                window.location.reload();
+                            }
+                        });
                     }
                 }
             }
