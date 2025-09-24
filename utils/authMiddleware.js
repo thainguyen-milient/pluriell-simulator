@@ -14,7 +14,11 @@ const extractToken = (req) => {
   else if (req.query && req.query.token) {
     token = req.query.token;
   }
-  // Priority 3: Check cookies (fallback for legacy support)
+  // Priority 3: Check session for access token (from SSO Gateway session)
+  else if (req.session && req.session.accessToken) {
+    token = req.session.accessToken;
+  }
+  // Priority 4: Check cookies (fallback for legacy support)
   else if (req.cookies) {
     // Try access_token (from SSO Gateway)
     if (req.cookies.access_token) {
@@ -25,8 +29,6 @@ const extractToken = (req) => {
       token = req.cookies.sso_token;
     }
   }
-  // Check localStorage via client-side script (this won't work server-side)
-  // This is handled by auth-helper.js on the client side
 
   return token;
 };

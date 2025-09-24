@@ -276,9 +276,196 @@ app.get('/', (req, res) => {
   `);
 });
 
+// Back-channel session creation endpoint (called by SSO Gateway)
+app.post('/api/sessions', express.json(), async (req, res) => {
+  try {
+    // Verify request is from SSO Gateway
+    const authHeader = req.headers.authorization;
+    const ssoGatewayHeader = req.headers['x-sso-gateway'];
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ') || !ssoGatewayHeader) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - invalid SSO Gateway request'
+      });
+    }
+
+    const gatewayToken = authHeader.substring(7);
+    if (gatewayToken !== process.env.SSO_GATEWAY_SECRET) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - invalid gateway token'
+      });
+    }
+
+    const { jws, user, code } = req.body;
+    
+    if (!jws || !user || !code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters'
+      });
+    }
+
+    // Verify JWS from SSO Gateway
+    let jwtPayload;
+    try {
+      jwtPayload = jwt.verify(jws, process.env.SSO_GATEWAY_SECRET);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid JWS signature'
+      });
+    }
+
+    // Validate JWS payload
+    if (jwtPayload.code !== code || jwtPayload.aud !== 'pluriell-api') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid JWS payload'
+      });
+    }
+
+    // Store one-time code and user data temporarily (5 minutes)
+    const sessionData = {
+      user: user,
+      token: jwtPayload.token,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutes
+    };
+
+    // In production, use Redis or database. For now, use memory store
+    global.oneTimeCodes = global.oneTimeCodes || new Map();
+    global.oneTimeCodes.set(code, sessionData);
+
+    // Clean up expired codes
+    for (const [key, value] of global.oneTimeCodes.entries()) {
+      if (Date.now() > value.expiresAt) {
+        global.oneTimeCodes.delete(key);
+      }
+    }
+
+    logger.info('Back-channel session created', {
+      userId: user.sub,
+      code: code.substring(0, 8) + '...' // Log partial code for security
+    });
+
+    res.json({
+      success: true,
+      message: 'Session prepared for handoff'
+    });
+
+  } catch (error) {
+    logger.error('Session creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Back-channel callback endpoint (handles one-time code from browser)
+app.get('/auth/callback', (req, res) => {
+  const { code, error } = req.query;
+
+  if (error) {
+    return res.status(400).send(`
+      <html>
+        <body>
+          <h1>Authentication Error</h1>
+          <p>Error: ${error}</p>
+          <a href="/">Return to Home</a>
+        </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    return res.status(400).send(`
+      <html>
+        <body>
+          <h1>Missing Code</h1>
+          <p>No authentication code provided</p>
+          <a href="/">Return to Home</a>
+        </body>
+      </html>
+    `);
+  }
+
+  // Retrieve session data using one-time code
+  global.oneTimeCodes = global.oneTimeCodes || new Map();
+  const sessionData = global.oneTimeCodes.get(code);
+
+  if (!sessionData) {
+    return res.status(401).send(`
+      <html>
+        <body>
+          <h1>Invalid or Expired Code</h1>
+          <p>The authentication code is invalid or has expired</p>
+          <a href="/">Return to Home</a>
+        </body>
+      </html>
+    `);
+  }
+
+  // Check if code has expired
+  if (Date.now() > sessionData.expiresAt) {
+    global.oneTimeCodes.delete(code);
+    return res.status(401).send(`
+      <html>
+        <body>
+          <h1>Expired Code</h1>
+          <p>The authentication code has expired</p>
+          <a href="/">Return to Home</a>
+        </body>
+      </html>
+    `);
+  }
+
+  // Create secure session cookie for this application
+  const sessionCookie = jwt.sign({
+    user: sessionData.user,
+    loginTime: new Date().toISOString(),
+    sessionId: crypto.randomBytes(16).toString('hex')
+  }, process.env.JWT_SECRET, {
+    expiresIn: '24h'
+  });
+
+  // Set secure session cookie
+  res.cookie('pluriell_session', sessionCookie, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? 'pluriell.receipt-flow.io.vn' : undefined
+  });
+
+  // Store user in server session as well
+  if (req.session) {
+    req.session.user = sessionData.user;
+    req.session.authenticated = true;
+    req.session.loginTime = new Date().toISOString();
+  }
+
+  // Clean up one-time code
+  global.oneTimeCodes.delete(code);
+
+  logger.info('Back-channel authentication completed', {
+    userId: sessionData.user.sub,
+    email: sessionData.user.email
+  });
+
+  // Redirect to main application
+  res.redirect('/');
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'pluriell-simulator'
+  });
 });
 
 // Error handling middleware
