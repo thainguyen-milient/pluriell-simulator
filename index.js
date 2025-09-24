@@ -17,6 +17,9 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Trust proxy for serverless deployments (Vercel, AWS Lambda, etc.)
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet());
 
